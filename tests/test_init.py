@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -19,6 +19,7 @@ from pytest_homeassistant_custom_component.components.recorder.common import (
 
 from custom_components.toplofikacia_sofia.api import API_URL
 from custom_components.toplofikacia_sofia.const import CONF_ACCIDENT_KEYWORDS, DOMAIN
+from custom_components.toplofikacia_sofia.coordinator import next_station_poll
 
 from .conftest import AUTH_FAIL, INSTALLATION_NUMBER, STATION_ID, USER_ID, mock_api
 
@@ -216,3 +217,19 @@ async def test_station_failure_does_not_block_setup(hass: HomeAssistant, aioclie
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.LOADED
     assert float(_state(hass, "sensor", "balance_due").state) == 55.75
+
+
+@pytest.mark.parametrize(
+    ("minutes_since_reading", "expected_minutes"),
+    [
+        (0, 60),  # fresh reading: wait for the next one (clamped to an hour)
+        (20, 45),  # next reading due at +65 min
+        (58, 10),  # due in 7 min: never poll faster than the retry interval
+        (90, 10),  # overdue: keep retrying
+    ],
+)
+def test_next_station_poll(minutes_since_reading: int, expected_minutes: int) -> None:
+    now = datetime(2026, 11, 25, 10, 0, tzinfo=dt_util.UTC)
+    measured = [now - timedelta(minutes=minutes_since_reading), now - timedelta(hours=3)]
+    assert next_station_poll(measured, now) == timedelta(minutes=expected_minutes)
+    assert next_station_poll([], now) == timedelta(minutes=10)

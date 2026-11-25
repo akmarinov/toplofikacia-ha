@@ -13,4 +13,8 @@ CONF_ACCIDENT_KEYWORDS: Final = "accident_keywords"
 
 ACCOUNT_SCAN_INTERVAL: Final = timedelta(hours=6)
 ACCIDENTS_SCAN_INTERVAL: Final = timedelta(minutes=30)
-STATIONS_SCAN_INTERVAL: Final = timedelta(minutes=10)
+# Stations push a reading roughly once an hour. Poll shortly after the next one
+# is due; if it hasn't arrived yet, retry every STATIONS_RETRY_INTERVAL.
+STATIONS_READING_PERIOD: Final = timedelta(hours=1)
+STATIONS_READING_GRACE: Final = timedelta(minutes=5)
+STATIONS_RETRY_INTERVAL: Final = timedelta(minutes=10)

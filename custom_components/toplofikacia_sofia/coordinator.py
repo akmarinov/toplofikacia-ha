@@ -39,7 +39,9 @@ from .const import (
     ACCIDENTS_SCAN_INTERVAL,
     ACCOUNT_SCAN_INTERVAL,
     DOMAIN,
-    STATIONS_SCAN_INTERVAL,
+    STATIONS_READING_GRACE,
+    STATIONS_READING_PERIOD,
+    STATIONS_RETRY_INTERVAL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -214,6 +216,22 @@ class ToploAccidentsCoordinator(DataUpdateCoordinator[list[Accident]]):
             raise UpdateFailed(str(err)) from err
 
 
+def next_station_poll(measured: list[datetime], now: datetime) -> timedelta:
+    """Delay until the next station poll.
+
+    Aim just after the next hourly reading of the most recently measured
+    station; fall back to a short retry when no reading is due yet or the
+    expected one is late.
+    """
+    if not measured:
+        return STATIONS_RETRY_INTERVAL
+    due = max(measured) + STATIONS_READING_PERIOD + STATIONS_READING_GRACE
+    delay = due - now
+    if delay < STATIONS_RETRY_INTERVAL:
+        return STATIONS_RETRY_INTERVAL
+    return min(delay, STATIONS_READING_PERIOD)
+
+
 class ToploStationsCoordinator(DataUpdateCoordinator[dict[str, Station]]):
     """Fetches live substation readings (temperatures, flow, power)."""
 
@@ -227,15 +245,20 @@ class ToploStationsCoordinator(DataUpdateCoordinator[dict[str, Station]]):
             _LOGGER,
             config_entry=entry,
             name=f"{DOMAIN} stations",
-            update_interval=STATIONS_SCAN_INTERVAL,
+            update_interval=STATIONS_RETRY_INTERVAL,
         )
         self.client = client
 
     async def _async_update_data(self) -> dict[str, Station]:
+        # Retry soon if this poll fails; a success replaces it below.
+        self.update_interval = STATIONS_RETRY_INTERVAL
         try:
             stations = await self.client.get_stations()
         except ToploAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except ToploError as err:
             raise UpdateFailed(str(err)) from err
+        self.update_interval = next_station_poll(
+            [s.measured for s in stations if s.measured], dt_util.utcnow()
+        )
         return {station.id: station for station in stations}

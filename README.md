@@ -23,7 +23,8 @@ For each active installation (абонатен номер) linked to your accoun
 | Overdue payment (binary) | On when an unpaid document is past its due date |
 
 For each substation (абонатна станция) serving your installations, live readings from the
-Monitoring page, refreshed every 10 minutes:
+Monitoring page. Stations report about once an hour, so the integration polls shortly after
+the next reading is due and retries every 10 minutes if it's late:
 
 | Entity | Notes |
 | --- | --- |
@@ -79,7 +80,7 @@ addresses.
 
 - Installations, invoices and consumption: every 6 hours
 - Accidents and repairs: every 30 minutes
-- Substation readings: every 10 minutes
+- Substation readings: about once an hour, just after each new measurement
 
 ## Trying the API without Home Assistant
 
