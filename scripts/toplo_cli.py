@@ -87,7 +87,7 @@ async def _main(args: argparse.Namespace) -> int:
                     f"    heating loop {loop} °C (target {st.heating_set_temperature}), "
                     f"hot water {st.hot_water_temperature} °C (target {st.hot_water_set_temperature})\n"
                     f"    supply/return {st.supply_temperature}/{st.return_temperature} °C, "
-                    f"flow {st.flow} m³/h, power {st.power} kW, outside {st.outside_temperature} °C\n"
+                    f"flow {st.flow} L/h, power {st.power} kW, outside {st.outside_temperature} °C\n"
                     f"    Heating on: {verdict}"
                 )
             return 0

@@ -34,7 +34,7 @@ the next reading is due and retries every 10 minutes if it's late:
 | Heating temperature / Heating target temperature | °C, measured and set point of the heating circuit |
 | Hot water temperature / Hot water target temperature | °C |
 | Supply / Return temperature | °C at the station's heat meter |
-| Flow | m³/h |
+| Flow | m³/h (the API reports L/h) |
 | Power | kW |
 | Heat meter energy | MWh, cumulative for the whole station (not your apartment) |
 | Supply / Return pressure, Indoor temperature | Only added if the station reports them |

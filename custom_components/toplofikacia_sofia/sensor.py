@@ -255,7 +255,9 @@ STATION_SENSORS: tuple[StationSensorDescription, ...] = (
         key="flow",
         device_class=SensorDeviceClass.VOLUME_FLOW_RATE,
         state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement=UnitOfVolumeFlowRate.CUBIC_METERS_PER_HOUR,
+        # The API reports litres per hour (the portal labels it "l/h").
+        native_unit_of_measurement=UnitOfVolumeFlowRate.LITERS_PER_HOUR,
+        suggested_unit_of_measurement=UnitOfVolumeFlowRate.CUBIC_METERS_PER_HOUR,
         suggested_display_precision=2,
         value_fn=lambda s: s.flow,
     ),

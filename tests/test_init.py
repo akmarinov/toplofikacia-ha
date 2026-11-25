@@ -104,7 +104,9 @@ async def test_setup_and_entities(
     assert float(station_state("heating_set_temperature").state) == 64.58
     assert float(station_state("hot_water_temperature").state) == 16.78
     assert float(station_state("station_energy").state) == 5434.2
-    assert station_state("flow").attributes["unit_of_measurement"] == "m³/h"
+    flow = station_state("flow")
+    assert flow.attributes["unit_of_measurement"] == "m³/h"
+    assert float(flow.state) == 2.75  # API reports 2750 L/h
     assert station_state("last_measurement").state == "2026-11-25T07:21:46+00:00"
     # Fields the station doesn't report get no entity.
     assert station_state("supply_pressure") is None
