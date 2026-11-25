@@ -75,7 +75,21 @@ async def _main(args: argparse.Namespace) -> int:
         if args.stations:
             data = await client._request("GET", "api/Stations/GetStationStandartView")  # noqa: SLF001
             print("\n== api/Stations/GetStationStandartView")
-            print(json.dumps(data, ensure_ascii=False, indent=2, default=str))
+            if args.raw:
+                print(json.dumps(data, ensure_ascii=False, indent=2, default=str))
+            # Same rule as the Heating on binary sensor.
+            threshold = 30.0
+            for st in await client.get_stations():
+                loop = st.heating_temperature
+                verdict = "unknown" if loop is None else ("ON" if loop >= threshold else "off")
+                print(
+                    f"  {st.name}: measured {st.measured}\n"
+                    f"    heating loop {loop} °C (target {st.heating_set_temperature}), "
+                    f"hot water {st.hot_water_temperature} °C (target {st.hot_water_set_temperature})\n"
+                    f"    supply/return {st.supply_temperature}/{st.return_temperature} °C, "
+                    f"flow {st.flow} m³/h, power {st.power} kW, outside {st.outside_temperature} °C\n"
+                    f"    Heating on: {verdict}"
+                )
             return 0
 
         installations = await client.get_installations()
