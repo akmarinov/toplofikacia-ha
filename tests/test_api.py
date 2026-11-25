@@ -87,7 +87,7 @@ async def test_invoice_query_params(hass: HomeAssistant, aioclient_mock) -> None
     await client.get_invoices([1, 2])
     url = next(u for _, u, _, _ in aioclient_mock.mock_calls if "invoices" in str(u))
     assert url.query["installationIds"] == "1,2"
-    assert url.query["invoicePeriodFilter"] == "EighteenMonths"
+    assert url.query["invoicePeriodFilter"] == "18"
 
 
 async def test_login_rejected(hass: HomeAssistant, aioclient_mock) -> None:

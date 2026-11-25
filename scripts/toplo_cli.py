@@ -18,7 +18,7 @@ import json
 import logging
 import os
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 _API_PATH = (
@@ -67,9 +67,13 @@ async def _main(args: argparse.Namespace) -> int:
             print(f"  #{inst.number} {inst.name or ''} | {inst.address} | deactivated={inst.is_deactivated}")
 
         active = [i for i in installations if not i.is_deactivated]
-        invoices = await client.get_invoices([i.number for i in active])
+        try:
+            invoices = await client.get_invoices([i.number for i in active])
+        except api.ToploError as err:
+            print(f"\nInvoices failed: {err}")
+            invoices = []
         print(f"\n{len(invoices)} invoice(s) in the last 18 months")
-        for inv in sorted(invoices, key=lambda x: x.document_date or date.min, reverse=True)[:12]:
+        for inv in sorted(invoices, key=lambda x: x.document_date or datetime.min.replace(tzinfo=timezone.utc), reverse=True)[:12]:
             print(
                 f"  {inv.installation} {inv.document_number} {inv.document_type} "
                 f"date={inv.document_date and inv.document_date.date()} "

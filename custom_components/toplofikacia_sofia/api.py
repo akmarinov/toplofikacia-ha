@@ -31,10 +31,11 @@ _CLAIM_USER_ID = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameiden
 # Refresh a little before the access token actually expires.
 _TOKEN_EXPIRY_MARGIN = 60
 
-# Values accepted by api/invoices/getAll?invoicePeriodFilter=
-INVOICE_PERIOD_6_MONTHS = "SixMonths"
-INVOICE_PERIOD_18_MONTHS = "EighteenMonths"
-INVOICE_PERIOD_36_MONTHS = "ThirtySixMonths"
+# Values for api/invoices/getAll?invoicePeriodFilter= (months). The server
+# rejects the enum names the portal's client code uses, only numbers work.
+INVOICE_PERIOD_6_MONTHS = 6
+INVOICE_PERIOD_18_MONTHS = 18
+INVOICE_PERIOD_36_MONTHS = 36
 
 ACCIDENT_TYPE_ACCIDENT = 0
 ACCIDENT_TYPE_REPAIRS = 1
@@ -427,7 +428,7 @@ class ToploClient:
                 # Auth endpoints answer bad credentials with 4xx + an AuthResult body.
                 if resp.status >= 500 or (resp.status >= 400 and not allow_error_status):
                     raise ToploConnectionError(
-                        f"{method} {path} returned HTTP {resp.status}"
+                        f"{method} {path} returned HTTP {resp.status}: {text[:300]}"
                     )
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:
             raise ToploConnectionError(f"{method} {path} failed: {err}") from err
@@ -464,7 +465,7 @@ class ToploClient:
     async def get_invoices(
         self,
         installation_numbers: list[int],
-        period: str = INVOICE_PERIOD_18_MONTHS,
+        period: int = INVOICE_PERIOD_18_MONTHS,
     ) -> list[Invoice]:
         """Invoices for the given installation numbers over a period."""
         if not installation_numbers:
@@ -473,7 +474,7 @@ class ToploClient:
             "api/invoices/getAll",
             {
                 "installationIds": ",".join(str(n) for n in installation_numbers),
-                "invoicePeriodFilter": period,
+                "invoicePeriodFilter": str(period),
             },
         )
         return [Invoice.from_api(row) for row in item or []]
