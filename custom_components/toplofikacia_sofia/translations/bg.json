@@ -106,6 +106,15 @@
       },
       "last_measurement": {
         "name": "Последно измерване"
+      },
+      "annual_correction_heating": {
+        "name": "Годишно изравняване отопление"
+      },
+      "annual_correction_hot_water": {
+        "name": "Годишно изравняване топла вода"
+      },
+      "building_energy": {
+        "name": "Енергия за сградата (последен месец)"
       }
     },
     "binary_sensor": {

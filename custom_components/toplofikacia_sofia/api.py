@@ -14,6 +14,7 @@ import base64
 import json
 import logging
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -159,6 +160,45 @@ class Consumption:
             heating=_decimal(data.get("heatingEnergy")),
             hot_water=_decimal(data.get("hotWaterEnergy")),
             is_real=bool(data.get("isRealConsumption", False)),
+        )
+
+
+ANNUAL_CORRECTION_OK = 1  # SuccessfullyGenerated
+
+
+@dataclass(frozen=True, slots=True)
+class AnnualCorrection:
+    """Annual correction (годишно изравняване) for one price period, in MWh."""
+
+    installation_number: int
+    period_from: datetime | None
+    period_to: datetime | None
+    heating_invoiced: Decimal
+    heating_final: Decimal
+    hot_water_invoiced: Decimal
+    hot_water_final: Decimal
+    status: int
+
+    @property
+    def heating_difference(self) -> Decimal:
+        """Positive: more energy than invoiced (you owe); negative: refund."""
+        return self.heating_final - self.heating_invoiced
+
+    @property
+    def hot_water_difference(self) -> Decimal:
+        return self.hot_water_final - self.hot_water_invoiced
+
+    @classmethod
+    def from_api(cls, data: dict[str, Any]) -> AnnualCorrection:
+        return cls(
+            installation_number=int(data.get("installationNumber") or 0),
+            period_from=parse_datetime(data.get("pricePeriodFrom")),
+            period_to=parse_datetime(data.get("pricePeriodTo")),
+            heating_invoiced=_decimal(data.get("heatingEnergyInvoiced")),
+            heating_final=_decimal(data.get("heatingEnergyFinal")),
+            hot_water_invoiced=_decimal(data.get("hotWaterEnergyInvoiced")),
+            hot_water_final=_decimal(data.get("hotWaterEnergyFinal")),
+            status=int(data.get("annualAligningSapResponseCodeDescription") or 0),
         )
 
 
@@ -540,13 +580,18 @@ class ToploClient:
         return [Invoice.from_api(row) for row in item or []]
 
     async def get_consumption(
-        self, installation_id: str, start: date, end: date
+        self,
+        installation_id: str,
+        start: date,
+        end: date,
+        *,
+        path: str = "api/energyConsumption/get",
     ) -> list[Consumption]:
         """Monthly consumption for an installation between two dates."""
         fmt = "%Y-%m-%dT%H:%M:%SZ"
         result = await self._request(
             "GET",
-            "api/energyConsumption/get",
+            path,
             params={
                 "installationId": installation_id,
                 "fromDate": datetime(start.year, start.month, start.day).strftime(fmt),
@@ -555,6 +600,42 @@ class ToploClient:
         )
         rows = [Consumption.from_api(row) for row in result or []]
         return sorted(rows, key=lambda c: (c.year, c.month))
+
+    async def get_station_consumption(
+        self, installation_id: str, start: date, end: date
+    ) -> list[Consumption]:
+        """Monthly consumption of the whole building (condominium) for an installation."""
+        return await self.get_consumption(
+            installation_id, start, end, path="api/energyConsumptionStation/get"
+        )
+
+    async def get_annual_corrections(
+        self, installation_id: str, years: Iterable[int]
+    ) -> list[AnnualCorrection]:
+        """Generated annual corrections for an installation, per price period.
+
+        Year Y is the heating season ending in April of Y. The API is queried one
+        year at a time, as the portal does; a multi-year range only reports "no
+        data". Years without a correction (status 2) are dropped.
+        """
+
+        async def one_year(year: int) -> Any:
+            return await self._request(
+                "GET",
+                "api/annualAligning/get",
+                params={"installationId": installation_id, "fromYear": year, "toYear": year},
+            )
+
+        results = await asyncio.gather(*(one_year(y) for y in years))
+        rows = [
+            correction
+            for result in results
+            for row in result or []
+            if (correction := AnnualCorrection.from_api(row)).status == ANNUAL_CORRECTION_OK
+        ]
+        return sorted(
+            rows, key=lambda r: r.period_from or datetime.min.replace(tzinfo=timezone.utc)
+        )
 
     async def get_accidents(self, culture: str = "bg-bg") -> list[Accident]:
         """Current accidents and planned repairs across the network."""

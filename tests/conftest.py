@@ -162,6 +162,31 @@ ACCIDENTS = {
 }
 
 
+BUILDING_CONSUMPTION = {
+    "$id": "1",
+    "$values": [
+        {"$id": "2", "installationNumber": INSTALLATION_NUMBER, "hotWaterEnergy": 0.0, "heatingEnergy": 9.5, "year": 2026, "month": 9, "isRealConsumption": True},
+        {"$id": "3", "installationNumber": INSTALLATION_NUMBER, "hotWaterEnergy": 0.0, "heatingEnergy": 31.5, "year": 2026, "month": 10, "isRealConsumption": True},
+    ],
+}
+
+ANNUAL_CORRECTIONS = {
+    "$id": "1",
+    "$values": [
+        # Older season, superseded by the newer one below.
+        {"$id": "2", "installationNumber": INSTALLATION_NUMBER, "hotWaterEnergyInvoiced": 1.0, "heatingEnergyInvoiced": 3.0, "hotWaterEnergyFinal": 1.0, "heatingEnergyFinal": 3.0, "pricePeriodFrom": "2024-05-01T00:00:00", "pricePeriodTo": "2025-04-30T00:00:00", "annualAligningSapResponseCodeDescription": 1},
+        {"$id": "3", "installationNumber": INSTALLATION_NUMBER, "hotWaterEnergyInvoiced": 1.2, "heatingEnergyInvoiced": 2.0, "hotWaterEnergyFinal": 1.1, "heatingEnergyFinal": 2.5, "pricePeriodFrom": "2025-05-01T00:00:00", "pricePeriodTo": "2025-12-31T00:00:00", "annualAligningSapResponseCodeDescription": 1},
+        {"$id": "4", "installationNumber": INSTALLATION_NUMBER, "hotWaterEnergyInvoiced": 0.8, "heatingEnergyInvoiced": 1.5, "hotWaterEnergyFinal": 0.75, "heatingEnergyFinal": 1.25, "pricePeriodFrom": "2026-01-01T00:00:00", "pricePeriodTo": "2026-04-30T00:00:00", "annualAligningSapResponseCodeDescription": 1},
+    ],
+}
+
+ANNUAL_NO_DATA = {
+    "$id": "1",
+    "$values": [
+        {"$id": "2", "installationNumber": 0, "hotWaterEnergyInvoiced": 0, "heatingEnergyInvoiced": 0, "hotWaterEnergyFinal": 0, "heatingEnergyFinal": 0, "pricePeriodFrom": "0001-01-01T00:00:00", "pricePeriodTo": "0001-01-01T00:00:00", "annualAligningSapResponseCodeDescription": 2}
+    ],
+}
+
 STATION_ID = "8e6bb549-d85c-ec11-90f8-005056af62d5"
 
 STATIONS = {
@@ -204,6 +229,15 @@ def mock_api(aioclient_mock, *, login: dict | None = None, login_status: int = 2
     aioclient_mock.get(f"{API_URL}api/installations/getbyuserid", json=INSTALLATIONS)
     aioclient_mock.get(f"{API_URL}api/invoices/getAll", json=INVOICES)
     aioclient_mock.get(f"{API_URL}api/energyConsumption/get", json=CONSUMPTION)
+    aioclient_mock.get(f"{API_URL}api/energyConsumptionStation/get", json=BUILDING_CONSUMPTION)
+    # Only 2026 (season 2025-05..2026-04) has a generated correction; other years
+    # answer "no data" like the live API does.
+    aioclient_mock.get(
+        f"{API_URL}api/annualAligning/get",
+        params={"installationId": INSTALLATION_ID, "fromYear": "2026", "toYear": "2026"},
+        json=ANNUAL_CORRECTIONS,
+    )
+    aioclient_mock.get(f"{API_URL}api/annualAligning/get", json=ANNUAL_NO_DATA)
     aioclient_mock.get(f"{API_URL}api/accidents/get", json=ACCIDENTS)
     aioclient_mock.get(f"{API_URL}api/Stations/GetStationStandartView", json=STATIONS)
 

@@ -61,6 +61,17 @@ async def _main(args: argparse.Namespace) -> int:
                 data = await client._request("GET", path, params=params)  # noqa: SLF001
                 print(f"\n== {path}\n{json.dumps(data, ensure_ascii=False, indent=2, default=str)}")
 
+        if args.annual:
+            for inst in [i for i in await client.get_installations() if not i.is_deactivated]:
+                for year in range(date.today().year - 3, date.today().year + 1):
+                    raw = await client._request(  # noqa: SLF001
+                        "GET",
+                        "api/annualAligning/get",
+                        params={"installationId": inst.id, "fromYear": year, "toYear": year},
+                    )
+                    print(f"#{inst.number} {year}: {json.dumps(raw, ensure_ascii=False, default=str)}")
+            return 0
+
         if args.stations:
             data = await client._request("GET", "api/Stations/GetStationStandartView")  # noqa: SLF001
             print("\n== api/Stations/GetStationStandartView")
@@ -97,6 +108,30 @@ async def _main(args: argparse.Namespace) -> int:
                     f"hot_water={row.hot_water} real={row.is_real}"
                 )
 
+        for inst in active:
+            try:
+                rows = await client.get_station_consumption(
+                    inst.id, date(today.year - 1, 1, 1), date(today.year, 12, 31)
+                )
+            except api.ToploError as err:
+                print(f"\nBuilding consumption #{inst.number} failed: {err}")
+            else:
+                print(f"\nBuilding consumption #{inst.number} (MWh)")
+                for row in rows[-6:]:
+                    print(f"  {row.year}-{row.month:02d} heating={row.heating} hot_water={row.hot_water} real={row.is_real}")
+            try:
+                corrections = await client.get_annual_corrections(inst.id, range(today.year - 3, today.year + 1))
+            except api.ToploError as err:
+                print(f"\nAnnual correction #{inst.number} failed: {err}")
+            else:
+                print(f"\nAnnual correction #{inst.number} (MWh)")
+                for c in corrections:
+                    print(
+                        f"  {c.period_from and c.period_from.date()}..{c.period_to and c.period_to.date()} "
+                        f"heating {c.heating_invoiced}->{c.heating_final} "
+                        f"hot_water {c.hot_water_invoiced}->{c.hot_water_final} status={c.status}"
+                    )
+
         accidents = await client.get_accidents()
         active_acc = [a for a in accidents if a.is_active()]
         print(f"\n{len(accidents)} accident/repair record(s), {len(active_acc)} active")
@@ -110,6 +145,7 @@ def main() -> None:
     parser.add_argument("email")
     parser.add_argument("--raw", action="store_true", help="also dump raw JSON for some endpoints")
     parser.add_argument("--stations", action="store_true", help="only dump live substation readings")
+    parser.add_argument("--annual", action="store_true", help="only dump annual corrections, year by year")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING)

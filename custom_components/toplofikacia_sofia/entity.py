@@ -5,7 +5,7 @@ from __future__ import annotations
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .api import Consumption, Installation, Invoice, Station
+from .api import AnnualCorrection, Consumption, Installation, Invoice, Station
 from .const import DOMAIN, MANUFACTURER, PORTAL_URL
 from .coordinator import (
     ToploAccidentsCoordinator,
@@ -52,6 +52,14 @@ class ToploInstallationEntity(CoordinatorEntity[ToploAccountCoordinator]):
     @property
     def consumption(self) -> list[Consumption]:
         return self.coordinator.data.consumption.get(self._number, [])
+
+    @property
+    def building_consumption(self) -> list[Consumption]:
+        return self.coordinator.data.building_consumption.get(self._number, [])
+
+    @property
+    def annual_corrections(self) -> list[AnnualCorrection]:
+        return self.coordinator.data.annual_corrections.get(self._number, [])
 
 
 class ToploAccountEntity(CoordinatorEntity[ToploAccidentsCoordinator]):

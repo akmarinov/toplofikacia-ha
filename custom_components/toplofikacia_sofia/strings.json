@@ -106,6 +106,15 @@
       },
       "last_measurement": {
         "name": "Last measurement"
+      },
+      "annual_correction_heating": {
+        "name": "Annual correction heating"
+      },
+      "annual_correction_hot_water": {
+        "name": "Annual correction hot water"
+      },
+      "building_energy": {
+        "name": "Building energy (last month)"
       }
     },
     "binary_sensor": {

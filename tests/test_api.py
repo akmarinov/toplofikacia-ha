@@ -153,3 +153,16 @@ async def test_stations(hass: HomeAssistant, aioclient_mock) -> None:
     assert station.supply_pressure is None
     assert station.unread_alarms == 53
     assert station.measured.isoformat() == "2026-11-25T09:21:46.124383+02:00"
+
+
+async def test_annual_corrections_per_year(hass: HomeAssistant, aioclient_mock) -> None:
+    mock_api(aioclient_mock)
+    client = ToploClient(async_get_clientsession(hass), "a@b.c", "pw")
+    rows = await client.get_annual_corrections(INSTALLATION_ID, range(2023, 2027))
+    # Only the 2026 request has data; "no data" years are dropped.
+    assert len(rows) == 3
+    assert {r.status for r in rows} == {1}
+    years = sorted(
+        u.query["fromYear"] for _, u, _, _ in aioclient_mock.mock_calls if "annualAligning" in str(u)
+    )
+    assert years == ["2023", "2024", "2025", "2026"]

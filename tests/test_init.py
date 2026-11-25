@@ -74,6 +74,19 @@ async def test_setup_and_entities(
 
     assert _state(hass, "binary_sensor", "overdue").state == "off"
 
+    building = _state(hass, "sensor", "building_energy")
+    assert float(building.state) == 31.5
+    assert building.attributes["period"] == "2026-10"
+
+    # Latest season = the two 2025-05..2026-04 price periods: (2.5-2.0) + (1.25-1.5).
+    correction = _state(hass, "sensor", "annual_correction_heating")
+    assert float(correction.state) == 0.25
+    assert correction.attributes["period_from"] == "2025-05-01"
+    assert correction.attributes["period_to"] == "2026-04-30"
+    assert correction.attributes["invoiced"] == 3.5
+    assert len(correction.attributes["price_periods"]) == 2
+    assert round(float(_state(hass, "sensor", "annual_correction_hot_water").state), 3) == -0.15
+
     accidents = _state(hass, "sensor", "active_accidents")
     assert accidents.state == "1"
     assert accidents.attributes["events"][0]["region"] == "Лозенец"
@@ -120,6 +133,18 @@ async def test_setup_and_entities(
         {"state", "sum"},
     )
     assert [round(r["sum"], 3) for r in stats[stat_id]] == [0.0, 0.4, 0.4]
+    building_id = f"{DOMAIN}:building_energy_{INSTALLATION_NUMBER}"
+    stats = await hass.async_add_executor_job(
+        statistics_during_period,
+        hass,
+        datetime(2026, 1, 1, tzinfo=dt_util.UTC),
+        None,
+        {building_id},
+        "hour",
+        None,
+        {"sum"},
+    )
+    assert [round(r["sum"], 3) for r in stats[building_id]] == [9.5, 41.0]
 
 
 @pytest.mark.freeze_time("2026-10-15T10:00:00+02:00")
@@ -233,3 +258,18 @@ def test_next_station_poll(minutes_since_reading: int, expected_minutes: int) ->
     measured = [now - timedelta(minutes=minutes_since_reading), now - timedelta(hours=3)]
     assert next_station_poll(measured, now) == timedelta(minutes=expected_minutes)
     assert next_station_poll([], now) == timedelta(minutes=10)
+
+
+async def test_secondary_endpoint_failure_keeps_billing(hass: HomeAssistant, aioclient_mock) -> None:
+    mock_api(aioclient_mock)
+    aioclient_mock._mocks = [
+        m for m in aioclient_mock._mocks if "annualAligning" not in str(m.url)
+    ]
+    aioclient_mock.get(f"{API_URL}api/annualAligning/get", status=500)
+    entry = _entry()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+    assert float(_state(hass, "sensor", "balance_due").state) == 55.75
+    assert _state(hass, "sensor", "annual_correction_heating").state == "unknown"

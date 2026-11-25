@@ -21,6 +21,8 @@ For each active installation (абонатен номер) linked to your accoun
 | Heating energy (last month) | MWh, latest month with data. `is_real_reading` is false for estimated months. |
 | Hot water energy (last month) | MWh |
 | Overdue payment (binary) | On when an unpaid document is past its due date |
+| Building energy (last month) | MWh used by the whole building (condominium) in the latest month with data, from the station's heat meter |
+| Annual correction heating / hot water | MWh difference between final and invoiced energy for the latest annual correction (годишно изравняване). Positive means more energy than you were billed for (you owe), negative means a refund. Invoiced, final and per-price-period figures are in the attributes. |
 
 For each substation (абонатна станция) serving your installations, live readings from the
 Monitoring page. Stations report about once an hour, so the integration polls shortly after
@@ -52,6 +54,7 @@ Monthly heating and hot-water consumption is written as external statistics:
 
 - `toplofikacia_sofia:heating_<installation number>`
 - `toplofikacia_sofia:hot_water_<installation number>`
+- `toplofikacia_sofia:building_energy_<installation number>` for the whole building
 
 Add them in **Settings → Dashboards → Energy** (as grid consumption, or as an individual
 device), or show them in a Statistics graph card with the period set to month. Every refresh
@@ -115,6 +118,8 @@ Base URL `https://api.toplo.bg/`. JSON uses camelCase, and lists arrive wrapped 
 | `GET api/invoices/getAll?installationIds=1,2&invoicePeriodFilter=EighteenMonths` | `{responseCode, item: [...]}` with `documentNumber`, `documentDate`, `dueDate`, `total`, `paid`, `due`, `currency` |
 | `GET api/energyConsumption/get?installationId=<guid>&fromDate=…Z&toDate=…Z` | Monthly `heatingEnergy` and `hotWaterEnergy` (MWh), plus `isRealConsumption` |
 | `GET api/Stations/GetStationStandartView` | Live substation readings: `outsideTemperature`, `heatingMeasuredTemperature`, `domesticHotWaterMeasuredTemperature` and their set points, `heatmeterTEmitting`/`TReturning`, `heatmeterDebit`, `heatmeterPower`, `heatmeterEnergy`, `measuredDate` |
+| `GET api/energyConsumptionStation/get?installationId=<guid>&fromDate=…Z&toDate=…Z` | Same shape as `energyConsumption`, for the whole building |
+| `GET api/annualAligning/get?installationId=<guid>&fromYear=&toYear=` | Per price period: `heatingEnergyInvoiced`/`Final`, `hotWaterEnergyInvoiced`/`Final`, `pricePeriodFrom`/`To`, status (1 = generated) |
 | `GET api/accidents/get?culture=bg-bg` | Accidents (`type` 0) and repairs (`type` 1), with `status` 0 new, 1 in progress, 2 resolved |
 
 This project isn't affiliated with Топлофикация София ЕАД.

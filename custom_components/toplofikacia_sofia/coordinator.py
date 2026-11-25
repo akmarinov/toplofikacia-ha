@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Coroutine
 import logging
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
+from typing import Any, TypeVar
 
 from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.models import (
@@ -27,6 +29,7 @@ from homeassistant.util.unit_conversion import EnergyConverter
 
 from .api import (
     Accident,
+    AnnualCorrection,
     Consumption,
     Installation,
     Invoice,
@@ -45,6 +48,7 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+_T = TypeVar("_T")
 
 
 @dataclass
@@ -54,6 +58,9 @@ class AccountData:
     installations: dict[int, Installation] = field(default_factory=dict)
     invoices: dict[int, list[Invoice]] = field(default_factory=dict)
     consumption: dict[int, list[Consumption]] = field(default_factory=dict)
+    # Whole-building (condominium) monthly consumption, per installation.
+    building_consumption: dict[int, list[Consumption]] = field(default_factory=dict)
+    annual_corrections: dict[int, list[AnnualCorrection]] = field(default_factory=dict)
 
 
 @dataclass
@@ -118,6 +125,14 @@ class ToploAccountCoordinator(DataUpdateCoordinator[AccountData]):
             data.installations[inst.number] = inst
             data.consumption[inst.number] = rows
             data.invoices[inst.number] = []
+            data.building_consumption[inst.number] = await self._optional(
+                self.client.get_station_consumption(inst.id, start, end),
+                "building consumption",
+            )
+            data.annual_corrections[inst.number] = await self._optional(
+                self.client.get_annual_corrections(inst.id, range(today.year - 3, today.year + 1)),
+                "annual correction",
+            )
         for invoice in invoices:
             data.invoices.setdefault(invoice.installation, []).append(invoice)
         for rows in data.invoices.values():
@@ -129,6 +144,16 @@ class ToploAccountCoordinator(DataUpdateCoordinator[AccountData]):
             _LOGGER.exception("Failed to import consumption statistics")
         return data
 
+    async def _optional(self, call: Coroutine[Any, Any, list[_T]], what: str) -> list[_T]:
+        """Run a secondary fetch whose failure shouldn't fail the whole update."""
+        try:
+            return await call
+        except ToploAuthError as err:
+            raise ConfigEntryAuthFailed(str(err)) from err
+        except ToploError as err:
+            _LOGGER.warning("Could not fetch %s: %s", what, err)
+            return []
+
     async def _async_import_statistics(self, data: AccountData) -> None:
         """Write monthly consumption as external long-term statistics.
 
@@ -139,16 +164,25 @@ class ToploAccountCoordinator(DataUpdateCoordinator[AccountData]):
         tz = dt_util.get_default_time_zone()
         recorder = get_instance(self.hass)
         this_month = dt_util.now().date().replace(day=1)
-        for number, all_rows in data.consumption.items():
+        apartment = (
+            ("heating", "heating", lambda c: c.heating),
+            ("hot_water", "hot water", lambda c: c.hot_water),
+        )
+        # The building's heat meter reports a single total.
+        building = (("building_energy", "building energy", lambda c: c.total),)
+        series = [
+            (number, rows, apartment) for number, rows in data.consumption.items()
+        ] + [
+            (number, rows, building)
+            for number, rows in data.building_consumption.items()
+        ]
+        for number, all_rows, kinds in series:
             rows = [row for row in all_rows if row.period <= this_month]
             if not rows:
                 continue
             inst = data.installations[number]
             label = inst.name or inst.address or str(number)
-            for kind, title, value_of in (
-                ("heating", "heating", lambda c: c.heating),
-                ("hot_water", "hot water", lambda c: c.hot_water),
-            ):
+            for kind, title, value_of in kinds:
                 stat_id = statistic_id(kind, number)
                 first_start = datetime(rows[0].year, rows[0].month, 1, tzinfo=tz)
                 previous = await recorder.async_add_executor_job(

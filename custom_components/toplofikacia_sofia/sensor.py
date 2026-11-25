@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -25,7 +25,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .api import Accident, Consumption, Invoice, Station
+from .api import ANNUAL_CORRECTION_OK, Accident, AnnualCorrection, Consumption, Invoice, Station
 from .const import CONF_ACCIDENT_KEYWORDS
 from .coordinator import ToploConfigEntry
 from .entity import ToploAccountEntity, ToploInstallationEntity, ToploStationEntity
@@ -105,6 +105,51 @@ def _energy(e: ToploInstallationEntity, field: str) -> float | None:
     return float(getattr(row, field)) if row else None
 
 
+def _building_energy(e: ToploInstallationEntity) -> float | None:
+    row = latest_consumption(e.building_consumption)
+    return float(row.total) if row else None
+
+
+def latest_season(rows: list[AnnualCorrection]) -> list[AnnualCorrection]:
+    """Price periods of the most recent generated annual correction (~12 months)."""
+    done = [r for r in rows if r.status == ANNUAL_CORRECTION_OK and r.period_to]
+    if not done:
+        return []
+    end = max(r.period_to for r in done)
+    start = end - timedelta(days=366)
+    return [r for r in done if r.period_from and r.period_from >= start]
+
+
+def _correction(e: ToploInstallationEntity, kind: str) -> float | None:
+    season = latest_season(e.annual_corrections)
+    if not season:
+        return None
+    return float(sum((getattr(r, f"{kind}_difference") for r in season), Decimal(0)))
+
+
+def _correction_attrs(e: ToploInstallationEntity, kind: str) -> dict[str, Any]:
+    season = latest_season(e.annual_corrections)
+    if not season:
+        return {}
+    invoiced = sum((getattr(r, f"{kind}_invoiced") for r in season), Decimal(0))
+    final = sum((getattr(r, f"{kind}_final") for r in season), Decimal(0))
+    return {
+        "period_from": min(r.period_from for r in season).date().isoformat(),
+        "period_to": max(r.period_to for r in season).date().isoformat(),
+        "invoiced": float(invoiced),
+        "final": float(final),
+        "price_periods": [
+            {
+                "from": r.period_from.date().isoformat(),
+                "to": r.period_to.date().isoformat(),
+                "invoiced": float(getattr(r, f"{kind}_invoiced")),
+                "final": float(getattr(r, f"{kind}_final")),
+            }
+            for r in season
+        ],
+    }
+
+
 INSTALLATION_SENSORS: tuple[InstallationSensorDescription, ...] = (
     InstallationSensorDescription(
         key="balance_due",
@@ -140,6 +185,32 @@ INSTALLATION_SENSORS: tuple[InstallationSensorDescription, ...] = (
         suggested_display_precision=3,
         value_fn=lambda e: _energy(e, "heating"),
         attrs_fn=lambda e: _consumption_attrs(latest_consumption(e.consumption)),
+    ),
+    InstallationSensorDescription(
+        # The station's heat meter reports one total (the API puts it all in
+        # heatingEnergy, hot water stays 0), so expose it as one figure.
+        key="building_energy",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.MEGA_WATT_HOUR,
+        suggested_display_precision=3,
+        value_fn=lambda e: _building_energy(e),
+        attrs_fn=lambda e: _consumption_attrs(latest_consumption(e.building_consumption)),
+    ),
+    InstallationSensorDescription(
+        key="annual_correction_heating",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.MEGA_WATT_HOUR,
+        suggested_display_precision=3,
+        value_fn=lambda e: _correction(e, "heating"),
+        attrs_fn=lambda e: _correction_attrs(e, "heating"),
+    ),
+    InstallationSensorDescription(
+        key="annual_correction_hot_water",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.MEGA_WATT_HOUR,
+        suggested_display_precision=3,
+        value_fn=lambda e: _correction(e, "hot_water"),
+        attrs_fn=lambda e: _correction_attrs(e, "hot_water"),
     ),
     InstallationSensorDescription(
         key="hot_water_energy",
