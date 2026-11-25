@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Toplofikatsia Sofia",
+        "description": "Sign in with your my.toplo.bg / Toplo mobile account.",
+        "data": {
+          "email": "[%key:common::config_flow::data::email%]",
+          "password": "[%key:common::config_flow::data::password%]"
+        }
+      },
+      "reauth_confirm": {
+        "title": "[%key:common::config_flow::title::reauth%]",
+        "description": "Enter the current password for {email}.",
+        "data": {
+          "password": "[%key:common::config_flow::data::password%]"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "unknown": "[%key:common::config_flow::error::unknown%]"
+    },
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_account%]",
+      "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]",
+      "wrong_account": "These credentials belong to a different account."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Accidents and repairs",
+        "description": "Comma-separated words to match against accident names, regions and addresses, for example your district, street or station. Leave empty to count all active events in Sofia. Setting keywords also adds an Outage binary sensor.",
+        "data": {
+          "accident_keywords": "Keywords"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "balance_due": { "name": "Balance due" },
+      "unpaid_invoices": { "name": "Unpaid invoices" },
+      "next_due_date": { "name": "Next due date" },
+      "latest_invoice": { "name": "Latest invoice" },
+      "heating_energy": { "name": "Heating energy (last month)" },
+      "hot_water_energy": { "name": "Hot water energy (last month)" },
+      "active_accidents": { "name": "Active accidents and repairs" }
+    },
+    "binary_sensor": {
+      "overdue": { "name": "Overdue payment" },
+      "outage": { "name": "Outage in my area" }
+    }
+  }
+}

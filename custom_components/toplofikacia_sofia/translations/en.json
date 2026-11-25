@@ -1,0 +1,75 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Toplofikatsia Sofia",
+        "description": "Sign in with your my.toplo.bg / Toplo mobile account.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate integration",
+        "description": "Enter the current password for {email}.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid authentication",
+      "cannot_connect": "Failed to connect",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "Account is already configured",
+      "reauth_successful": "Re-authentication was successful",
+      "wrong_account": "These credentials belong to a different account."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Accidents and repairs",
+        "description": "Comma-separated words to match against accident names, regions and addresses, for example your district, street or station. Leave empty to count all active events in Sofia. Setting keywords also adds an Outage binary sensor.",
+        "data": {
+          "accident_keywords": "Keywords"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "balance_due": {
+        "name": "Balance due"
+      },
+      "unpaid_invoices": {
+        "name": "Unpaid invoices"
+      },
+      "next_due_date": {
+        "name": "Next due date"
+      },
+      "latest_invoice": {
+        "name": "Latest invoice"
+      },
+      "heating_energy": {
+        "name": "Heating energy (last month)"
+      },
+      "hot_water_energy": {
+        "name": "Hot water energy (last month)"
+      },
+      "active_accidents": {
+        "name": "Active accidents and repairs"
+      }
+    },
+    "binary_sensor": {
+      "overdue": {
+        "name": "Overdue payment"
+      },
+      "outage": {
+        "name": "Outage in my area"
+      }
+    }
+  }
+}
