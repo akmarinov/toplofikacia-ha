@@ -1,14 +1,20 @@
 {
   "domain": "toplofikacia_sofia",
   "name": "Toplofikatsia Sofia",
-  "codeowners": [],
+  "codeowners": [
+    "@akmarinov"
+  ],
   "config_flow": true,
-  "dependencies": ["recorder"],
+  "dependencies": [
+    "recorder"
+  ],
   "documentation": "https://github.com/akmarinov/toplofikacia-ha",
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/akmarinov/toplofikacia-ha/issues",
-  "loggers": ["custom_components.toplofikacia_sofia"],
+  "loggers": [
+    "custom_components.toplofikacia_sofia"
+  ],
   "requirements": [],
   "version": "0.1.0"
 }
