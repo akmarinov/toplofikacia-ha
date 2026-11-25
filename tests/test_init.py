@@ -10,7 +10,7 @@ from homeassistant.components.recorder.statistics import statistics_during_perio
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.components.recorder.common import (
@@ -20,7 +20,7 @@ from pytest_homeassistant_custom_component.components.recorder.common import (
 from custom_components.toplofikacia_sofia.api import API_URL
 from custom_components.toplofikacia_sofia.const import CONF_ACCIDENT_KEYWORDS, DOMAIN
 
-from .conftest import AUTH_FAIL, INSTALLATION_NUMBER, USER_ID, mock_api
+from .conftest import AUTH_FAIL, INSTALLATION_NUMBER, STATION_ID, USER_ID, mock_api
 
 
 def _entry(options: dict | None = None) -> MockConfigEntry:
@@ -78,8 +78,27 @@ async def test_setup_and_entities(
     assert accidents.attributes["events"][0]["region"] == "Лозенец"
     assert _state(hass, "binary_sensor", "outage").state == "on"
 
-    # Deactivated installation 999 gets no entities.
+    # Live substation readings.
     registry = er.async_get(hass)
+
+    def station_state(key: str):
+        entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"station_{STATION_ID}_{key}")
+        return entity_id and hass.states.get(entity_id)
+
+    assert float(station_state("outside_temperature").state) == -1.61
+    assert float(station_state("heating_temperature").state) == 20.64
+    assert float(station_state("heating_set_temperature").state) == 64.58
+    assert float(station_state("hot_water_temperature").state) == 16.78
+    assert float(station_state("station_energy").state) == 5434.2
+    assert station_state("flow").attributes["unit_of_measurement"] == "m³/h"
+    assert station_state("last_measurement").state == "2026-11-25T07:21:46+00:00"
+    # Fields the station doesn't report get no entity.
+    assert station_state("supply_pressure") is None
+    assert station_state("internal_temperature") is None
+    device = dr.async_get(hass).async_get_device({(DOMAIN, f"station_{STATION_ID}")})
+    assert device.name == "АС Ж.К. ТЕСТ Бл. 1 А"
+
+    # Deactivated installation 999 gets no entities.
     assert not registry.async_get_entity_id("sensor", DOMAIN, "999_balance_due")
 
     # Monthly consumption imported as external statistics.
@@ -180,3 +199,16 @@ async def test_api_down_retries(
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.SETUP_RETRY
+
+
+async def test_station_failure_does_not_block_setup(hass: HomeAssistant, aioclient_mock) -> None:
+    mock_api(aioclient_mock)
+    # Override the stations endpoint with a failure (first match wins, so rebuild).
+    aioclient_mock._mocks = [m for m in aioclient_mock._mocks if "GetStationStandartView" not in str(m.url)]
+    aioclient_mock.get(f"{API_URL}api/Stations/GetStationStandartView", status=500)
+    entry = _entry()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+    assert float(_state(hass, "sensor", "balance_due").state) == 55.75

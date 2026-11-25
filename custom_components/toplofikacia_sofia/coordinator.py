@@ -30,11 +30,17 @@ from .api import (
     Consumption,
     Installation,
     Invoice,
+    Station,
     ToploAuthError,
     ToploClient,
     ToploError,
 )
-from .const import ACCIDENTS_SCAN_INTERVAL, ACCOUNT_SCAN_INTERVAL, DOMAIN
+from .const import (
+    ACCIDENTS_SCAN_INTERVAL,
+    ACCOUNT_SCAN_INTERVAL,
+    DOMAIN,
+    STATIONS_SCAN_INTERVAL,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,6 +61,7 @@ class ToploRuntimeData:
     client: ToploClient
     account: ToploAccountCoordinator
     accidents: ToploAccidentsCoordinator
+    stations: ToploStationsCoordinator
 
 
 type ToploConfigEntry = ConfigEntry[ToploRuntimeData]
@@ -205,3 +212,30 @@ class ToploAccidentsCoordinator(DataUpdateCoordinator[list[Accident]]):
             raise ConfigEntryAuthFailed(str(err)) from err
         except ToploError as err:
             raise UpdateFailed(str(err)) from err
+
+
+class ToploStationsCoordinator(DataUpdateCoordinator[dict[str, Station]]):
+    """Fetches live substation readings (temperatures, flow, power)."""
+
+    config_entry: ToploConfigEntry
+
+    def __init__(
+        self, hass: HomeAssistant, entry: ToploConfigEntry, client: ToploClient
+    ) -> None:
+        super().__init__(
+            hass,
+            _LOGGER,
+            config_entry=entry,
+            name=f"{DOMAIN} stations",
+            update_interval=STATIONS_SCAN_INTERVAL,
+        )
+        self.client = client
+
+    async def _async_update_data(self) -> dict[str, Station]:
+        try:
+            stations = await self.client.get_stations()
+        except ToploAuthError as err:
+            raise ConfigEntryAuthFailed(str(err)) from err
+        except ToploError as err:
+            raise UpdateFailed(str(err)) from err
+        return {station.id: station for station in stations}

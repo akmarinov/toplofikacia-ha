@@ -61,6 +61,51 @@
       },
       "active_accidents": {
         "name": "Активни аварии и ремонти"
+      },
+      "outside_temperature": {
+        "name": "Външна температура"
+      },
+      "internal_temperature": {
+        "name": "Вътрешна температура"
+      },
+      "heating_temperature": {
+        "name": "Температура на отоплението"
+      },
+      "heating_set_temperature": {
+        "name": "Зададена температура на отоплението"
+      },
+      "hot_water_temperature": {
+        "name": "Температура на топлата вода"
+      },
+      "hot_water_set_temperature": {
+        "name": "Зададена температура на топлата вода"
+      },
+      "supply_temperature": {
+        "name": "Температура на подаващия"
+      },
+      "return_temperature": {
+        "name": "Температура на връщащия"
+      },
+      "flow": {
+        "name": "Дебит"
+      },
+      "power": {
+        "name": "Мощност"
+      },
+      "station_energy": {
+        "name": "Енергия по топломер"
+      },
+      "supply_pressure": {
+        "name": "Налягане на подаващия"
+      },
+      "return_pressure": {
+        "name": "Налягане на връщащия"
+      },
+      "unread_alarms": {
+        "name": "Непрочетени аларми"
+      },
+      "last_measurement": {
+        "name": "Последно измерване"
       }
     },
     "binary_sensor": {

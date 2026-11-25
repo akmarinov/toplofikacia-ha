@@ -62,4 +62,8 @@ async def async_get_config_entry_diagnostics(
             for number, rows in data.consumption.items()
         },
         "accidents": len(entry.runtime_data.accidents.data or []),
+        "stations": [
+            async_redact_data(_plain(station), TO_REDACT | {"name", "station_number", "logical_heatmeter_number"})
+            for station in (entry.runtime_data.stations.data or {}).values()
+        ],
     }

@@ -142,3 +142,14 @@ async def test_http_error(hass: HomeAssistant, aioclient_mock) -> None:
     client = ToploClient(async_get_clientsession(hass), "a@b.c", "pw")
     with pytest.raises(ToploConnectionError, match="HTTP 500"):
         await client.get_accidents()
+
+
+async def test_stations(hass: HomeAssistant, aioclient_mock) -> None:
+    mock_api(aioclient_mock)
+    client = ToploClient(async_get_clientsession(hass), "a@b.c", "pw")
+    [station] = await client.get_stations()
+    assert station.name == "Ж.К. ТЕСТ Бл. 1 А"
+    assert station.heating_temperature == 20.64
+    assert station.supply_pressure is None
+    assert station.unread_alarms == 53
+    assert station.measured.isoformat() == "2026-11-25T09:21:46.124383+02:00"

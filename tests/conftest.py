@@ -162,6 +162,41 @@ ACCIDENTS = {
 }
 
 
+STATION_ID = "8e6bb549-d85c-ec11-90f8-005056af62d5"
+
+STATIONS = {
+    "$id": "1",
+    "$values": [
+        {
+            "$id": "2",
+            "id": STATION_ID,
+            "name": "Ж.К. ТЕСТ Бл. 1 А;",
+            "status": None,
+            "logicalHeatmeterNumber": 70000,
+            "stationNumber": 9000,
+            "measuredDate": "2026-11-25T09:21:46.1243836+02:00",
+            "outsideTemperature": -1.61,
+            "internalTemperature": None,
+            "heatingSetTemperature": 64.58,
+            "heatingMeasuredTemperature": 20.64,
+            "domesticHotWaterSetTemperature": 57.0,
+            "domesticHotWaterMeasuredTemperature": 16.78,
+            "notReadedAlarmNotifications": 53,
+            "nThermalDistrictName": "София Изток",
+            "heatmeterTEmitting": 19.61,
+            "heatmeterTReturning": 17.38,
+            "heatmeterDebit": 0.0,
+            "heatmeterPower": 0.0,
+            "heatmeterEnergy": 5434.2,
+            "pressureEmitting": None,
+            "pressureReturning": None,
+            "hasCurveDeviation": False,
+            "isActive": True,
+        }
+    ],
+}
+
+
 def mock_api(aioclient_mock, *, login: dict | None = None, login_status: int = 200) -> None:
     """Register happy-path responses for every endpoint."""
     aioclient_mock.post(f"{API_URL}api/auth/login", json=login or auth_ok(), status=login_status)
@@ -170,6 +205,7 @@ def mock_api(aioclient_mock, *, login: dict | None = None, login_status: int = 2
     aioclient_mock.get(f"{API_URL}api/invoices/getAll", json=INVOICES)
     aioclient_mock.get(f"{API_URL}api/energyConsumption/get", json=CONSUMPTION)
     aioclient_mock.get(f"{API_URL}api/accidents/get", json=ACCIDENTS)
+    aioclient_mock.get(f"{API_URL}api/Stations/GetStationStandartView", json=STATIONS)
 
 
 @pytest.fixture(autouse=True)

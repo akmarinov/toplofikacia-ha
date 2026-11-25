@@ -209,6 +209,66 @@ class Accident:
         )
 
 
+def _opt_float(value: Any) -> float | None:
+    return None if value is None else float(value)
+
+
+@dataclass(frozen=True, slots=True)
+class Station:
+    """Live readings from a substation ("абонатна станция") the account can see."""
+
+    id: str
+    name: str | None
+    station_number: int
+    logical_heatmeter_number: int | None
+    district: str | None
+    measured: datetime | None
+    outside_temperature: float | None
+    internal_temperature: float | None
+    heating_set_temperature: float | None
+    heating_temperature: float | None
+    hot_water_set_temperature: float | None
+    hot_water_temperature: float | None
+    supply_temperature: float | None
+    return_temperature: float | None
+    flow: float | None
+    power: float | None
+    energy: float | None
+    supply_pressure: float | None
+    return_pressure: float | None
+    unread_alarms: int | None
+    curve_deviation: bool
+    is_active: bool
+
+    @classmethod
+    def from_api(cls, data: dict[str, Any]) -> Station:
+        alarms = data.get("notReadedAlarmNotifications")
+        return cls(
+            id=str(data["id"]),
+            name=(data.get("name") or "").strip(" ;") or None,
+            station_number=int(data.get("stationNumber") or 0),
+            logical_heatmeter_number=data.get("logicalHeatmeterNumber"),
+            district=data.get("nThermalDistrictName"),
+            measured=parse_datetime(data.get("measuredDate")),
+            outside_temperature=_opt_float(data.get("outsideTemperature")),
+            internal_temperature=_opt_float(data.get("internalTemperature")),
+            heating_set_temperature=_opt_float(data.get("heatingSetTemperature")),
+            heating_temperature=_opt_float(data.get("heatingMeasuredTemperature")),
+            hot_water_set_temperature=_opt_float(data.get("domesticHotWaterSetTemperature")),
+            hot_water_temperature=_opt_float(data.get("domesticHotWaterMeasuredTemperature")),
+            supply_temperature=_opt_float(data.get("heatmeterTEmitting")),
+            return_temperature=_opt_float(data.get("heatmeterTReturning")),
+            flow=_opt_float(data.get("heatmeterDebit")),
+            power=_opt_float(data.get("heatmeterPower")),
+            energy=_opt_float(data.get("heatmeterEnergy")),
+            supply_pressure=_opt_float(data.get("pressureEmitting")),
+            return_pressure=_opt_float(data.get("pressureReturning")),
+            unread_alarms=None if alarms is None else int(alarms),
+            curve_deviation=bool(data.get("hasCurveDeviation", False)),
+            is_active=bool(data.get("isActive", True)),
+        )
+
+
 # --------------------------------------------------------------------------- #
 # Helpers
 # --------------------------------------------------------------------------- #
@@ -502,3 +562,8 @@ class ToploClient:
             "GET", "api/accidents/get", params={"culture": culture}
         )
         return [Accident.from_api(row) for row in result or []]
+
+    async def get_stations(self) -> list[Station]:
+        """Live readings for the substations serving the account's installations."""
+        result = await self._request("GET", "api/Stations/GetStationStandartView")
+        return [Station.from_api(row) for row in result or []]

@@ -12,15 +12,23 @@ from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
+    SensorStateClass,
 )
-from homeassistant.const import UnitOfEnergy
+from homeassistant.const import (
+    EntityCategory,
+    UnitOfEnergy,
+    UnitOfPower,
+    UnitOfPressure,
+    UnitOfTemperature,
+    UnitOfVolumeFlowRate,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .api import Accident, Consumption, Invoice
+from .api import Accident, Consumption, Invoice, Station
 from .const import CONF_ACCIDENT_KEYWORDS
 from .coordinator import ToploConfigEntry
-from .entity import ToploAccountEntity, ToploInstallationEntity
+from .entity import ToploAccountEntity, ToploInstallationEntity, ToploStationEntity
 
 PARALLEL_UPDATES = 0
 # Bulgaria has billed in euro since 2026-01-01.
@@ -144,6 +152,90 @@ INSTALLATION_SENSORS: tuple[InstallationSensorDescription, ...] = (
 )
 
 
+@dataclass(frozen=True, kw_only=True)
+class StationSensorDescription(SensorEntityDescription):
+    value_fn: Callable[[Station], Any]
+    # Only create the entity if the station reported a value at setup.
+    optional: bool = False
+
+
+def _temperature(key: str, fn: Callable[[Station], float | None], **kwargs: Any) -> StationSensorDescription:
+    return StationSensorDescription(
+        key=key,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        suggested_display_precision=1,
+        value_fn=fn,
+        **kwargs,
+    )
+
+
+STATION_SENSORS: tuple[StationSensorDescription, ...] = (
+    _temperature("outside_temperature", lambda s: s.outside_temperature),
+    _temperature("internal_temperature", lambda s: s.internal_temperature, optional=True),
+    _temperature("heating_temperature", lambda s: s.heating_temperature),
+    _temperature("heating_set_temperature", lambda s: s.heating_set_temperature),
+    _temperature("hot_water_temperature", lambda s: s.hot_water_temperature),
+    _temperature("hot_water_set_temperature", lambda s: s.hot_water_set_temperature),
+    _temperature("supply_temperature", lambda s: s.supply_temperature),
+    _temperature("return_temperature", lambda s: s.return_temperature),
+    StationSensorDescription(
+        key="flow",
+        device_class=SensorDeviceClass.VOLUME_FLOW_RATE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfVolumeFlowRate.CUBIC_METERS_PER_HOUR,
+        suggested_display_precision=2,
+        value_fn=lambda s: s.flow,
+    ),
+    StationSensorDescription(
+        key="power",
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfPower.KILO_WATT,
+        suggested_display_precision=1,
+        value_fn=lambda s: s.power,
+    ),
+    StationSensorDescription(
+        key="station_energy",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.MEGA_WATT_HOUR,
+        suggested_display_precision=2,
+        value_fn=lambda s: s.energy,
+    ),
+    StationSensorDescription(
+        key="supply_pressure",
+        device_class=SensorDeviceClass.PRESSURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfPressure.BAR,
+        suggested_display_precision=2,
+        value_fn=lambda s: s.supply_pressure,
+        optional=True,
+    ),
+    StationSensorDescription(
+        key="return_pressure",
+        device_class=SensorDeviceClass.PRESSURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfPressure.BAR,
+        suggested_display_precision=2,
+        value_fn=lambda s: s.return_pressure,
+        optional=True,
+    ),
+    StationSensorDescription(
+        key="unread_alarms",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda s: s.unread_alarms,
+    ),
+    StationSensorDescription(
+        key="last_measurement",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda s: s.measured,
+    ),
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ToploConfigEntry,
@@ -155,6 +247,12 @@ async def async_setup_entry(
         for number in runtime.account.data.installations
         for desc in INSTALLATION_SENSORS
     ]
+    for station_id, station in (runtime.stations.data or {}).items():
+        entities.extend(
+            ToploStationSensor(runtime.stations, station_id, desc)
+            for desc in STATION_SENSORS
+            if not desc.optional or desc.value_fn(station) is not None
+        )
     entities.append(
         ToploAccidentsSensor(
             runtime.accidents, keywords_from(entry.options.get(CONF_ACCIDENT_KEYWORDS))
@@ -188,6 +286,20 @@ class ToploInstallationSensor(ToploInstallationEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return self.entity_description.attrs_fn(self)
+
+
+class ToploStationSensor(ToploStationEntity, SensorEntity):
+    """A live substation reading."""
+
+    entity_description: StationSensorDescription
+
+    def __init__(self, coordinator, station_id: str, description: StationSensorDescription) -> None:
+        super().__init__(coordinator, station_id, description.key)
+        self.entity_description = description
+
+    @property
+    def native_value(self) -> Any:
+        return self.entity_description.value_fn(self.station)
 
 
 def accident_attrs(acc: Accident) -> dict[str, Any]:

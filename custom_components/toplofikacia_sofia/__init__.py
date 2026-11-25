@@ -13,6 +13,7 @@ from .coordinator import (
     ToploAccountCoordinator,
     ToploConfigEntry,
     ToploRuntimeData,
+    ToploStationsCoordinator,
 )
 
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
@@ -34,10 +35,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ToploConfigEntry) -> boo
 
     account = ToploAccountCoordinator(hass, entry, client)
     accidents = ToploAccidentsCoordinator(hass, entry, client)
+    stations = ToploStationsCoordinator(hass, entry, client)
     await account.async_config_entry_first_refresh()
     await accidents.async_config_entry_first_refresh()
+    # Live readings are optional: a failure here must not block billing data.
+    await stations.async_refresh()
 
-    entry.runtime_data = ToploRuntimeData(client, account, accidents)
+    entry.runtime_data = ToploRuntimeData(client, account, accidents, stations)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True

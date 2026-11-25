@@ -22,6 +22,21 @@ For each active installation (абонатен номер) linked to your accoun
 | Hot water energy (last month) | MWh |
 | Overdue payment (binary) | On when an unpaid document is past its due date |
 
+For each substation (абонатна станция) serving your installations, live readings from the
+Monitoring page, refreshed every 10 minutes:
+
+| Entity | Notes |
+| --- | --- |
+| Outside temperature | °C, from the station's sensor |
+| Heating temperature / Heating target temperature | °C, measured and set point of the heating circuit |
+| Hot water temperature / Hot water target temperature | °C |
+| Supply / Return temperature | °C at the station's heat meter |
+| Flow | m³/h |
+| Power | kW |
+| Heat meter energy | MWh, cumulative for the whole station (not your apartment) |
+| Supply / Return pressure, Indoor temperature | Only added if the station reports them |
+| Unread alarms, Last measurement | Diagnostic |
+
 For the account:
 
 | Entity | Notes |
@@ -63,12 +78,14 @@ addresses.
 
 - Installations, invoices and consumption: every 6 hours
 - Accidents and repairs: every 30 minutes
+- Substation readings: every 10 minutes
 
 ## Trying the API without Home Assistant
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install aiohttp
-.venv/bin/python scripts/toplo_cli.py you@example.com --raw
+.venv/bin/python scripts/toplo_cli.py you@example.com --raw       # everything
+.venv/bin/python scripts/toplo_cli.py you@example.com --stations  # live readings only
 ```
 
 It asks for your password (or reads `TOPLO_PASSWORD`) and prints installations, invoices,
@@ -95,6 +112,7 @@ Base URL `https://api.toplo.bg/`. JSON uses camelCase, and lists arrive wrapped 
 | `GET api/installations/getbyuserid?userId=` | Installations (`id` GUID, `number`, `name`, `address`, `isDeactivated`, …) |
 | `GET api/invoices/getAll?installationIds=1,2&invoicePeriodFilter=EighteenMonths` | `{responseCode, item: [...]}` with `documentNumber`, `documentDate`, `dueDate`, `total`, `paid`, `due`, `currency` |
 | `GET api/energyConsumption/get?installationId=<guid>&fromDate=…Z&toDate=…Z` | Monthly `heatingEnergy` and `hotWaterEnergy` (MWh), plus `isRealConsumption` |
+| `GET api/Stations/GetStationStandartView` | Live substation readings: `outsideTemperature`, `heatingMeasuredTemperature`, `domesticHotWaterMeasuredTemperature` and their set points, `heatmeterTEmitting`/`TReturning`, `heatmeterDebit`, `heatmeterPower`, `heatmeterEnergy`, `measuredDate` |
 | `GET api/accidents/get?culture=bg-bg` | Accidents (`type` 0) and repairs (`type` 1), with `status` 0 new, 1 in progress, 2 resolved |
 
 This project isn't affiliated with Топлофикация София ЕАД.

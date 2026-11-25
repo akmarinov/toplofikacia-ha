@@ -61,6 +61,12 @@ async def _main(args: argparse.Namespace) -> int:
                 data = await client._request("GET", path, params=params)  # noqa: SLF001
                 print(f"\n== {path}\n{json.dumps(data, ensure_ascii=False, indent=2, default=str)}")
 
+        if args.stations:
+            data = await client._request("GET", "api/Stations/GetStationStandartView")  # noqa: SLF001
+            print("\n== api/Stations/GetStationStandartView")
+            print(json.dumps(data, ensure_ascii=False, indent=2, default=str))
+            return 0
+
         installations = await client.get_installations()
         print(f"\n{len(installations)} installation(s)")
         for inst in installations:
@@ -103,6 +109,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("email")
     parser.add_argument("--raw", action="store_true", help="also dump raw JSON for some endpoints")
+    parser.add_argument("--stations", action="store_true", help="only dump live substation readings")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING)

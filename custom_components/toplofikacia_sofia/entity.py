@@ -5,9 +5,13 @@ from __future__ import annotations
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .api import Consumption, Installation, Invoice
+from .api import Consumption, Installation, Invoice, Station
 from .const import DOMAIN, MANUFACTURER, PORTAL_URL
-from .coordinator import ToploAccidentsCoordinator, ToploAccountCoordinator
+from .coordinator import (
+    ToploAccidentsCoordinator,
+    ToploAccountCoordinator,
+    ToploStationsCoordinator,
+)
 
 
 class ToploInstallationEntity(CoordinatorEntity[ToploAccountCoordinator]):
@@ -68,3 +72,35 @@ class ToploAccountEntity(CoordinatorEntity[ToploAccidentsCoordinator]):
             configuration_url=f"{PORTAL_URL}/accidents",
             entry_type=DeviceEntryType.SERVICE,
         )
+
+
+class ToploStationEntity(CoordinatorEntity[ToploStationsCoordinator]):
+    """An entity tied to one substation's live readings."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self, coordinator: ToploStationsCoordinator, station_id: str, key: str
+    ) -> None:
+        super().__init__(coordinator)
+        self._station_id = station_id
+        self._attr_unique_id = f"station_{station_id}_{key}"
+        self._attr_translation_key = key
+        station = coordinator.data[station_id]
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"station_{station_id}")},
+            name=f"АС {station.name or station.station_number}",
+            manufacturer=MANUFACTURER,
+            model="Абонатна станция",
+            serial_number=str(station.station_number),
+            configuration_url=f"{PORTAL_URL}/monitoring/station/{station_id}",
+            entry_type=DeviceEntryType.SERVICE,
+        )
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._station_id in self.coordinator.data
+
+    @property
+    def station(self) -> Station:
+        return self.coordinator.data[self._station_id]

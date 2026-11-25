@@ -61,6 +61,51 @@
       },
       "active_accidents": {
         "name": "Active accidents and repairs"
+      },
+      "outside_temperature": {
+        "name": "Outside temperature"
+      },
+      "internal_temperature": {
+        "name": "Indoor temperature"
+      },
+      "heating_temperature": {
+        "name": "Heating temperature"
+      },
+      "heating_set_temperature": {
+        "name": "Heating target temperature"
+      },
+      "hot_water_temperature": {
+        "name": "Hot water temperature"
+      },
+      "hot_water_set_temperature": {
+        "name": "Hot water target temperature"
+      },
+      "supply_temperature": {
+        "name": "Supply temperature"
+      },
+      "return_temperature": {
+        "name": "Return temperature"
+      },
+      "flow": {
+        "name": "Flow"
+      },
+      "power": {
+        "name": "Power"
+      },
+      "station_energy": {
+        "name": "Heat meter energy"
+      },
+      "supply_pressure": {
+        "name": "Supply pressure"
+      },
+      "return_pressure": {
+        "name": "Return pressure"
+      },
+      "unread_alarms": {
+        "name": "Unread alarms"
+      },
+      "last_measurement": {
+        "name": "Last measurement"
       }
     },
     "binary_sensor": {
