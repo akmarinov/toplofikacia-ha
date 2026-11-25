@@ -36,6 +36,7 @@ Monitoring page, refreshed every 10 minutes:
 | Heat meter energy | MWh, cumulative for the whole station (not your apartment) |
 | Supply / Return pressure, Indoor temperature | Only added if the station reports them |
 | Unread alarms, Last measurement | Diagnostic |
+| Heating on (binary) | On when the heating circuit is above 30 °C, meaning Toplofikatsia is supplying heat. Use it to tell when the heating season starts or stops, or to catch an outage. |
 
 For the account:
 

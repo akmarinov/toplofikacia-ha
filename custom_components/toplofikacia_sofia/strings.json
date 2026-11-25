@@ -114,6 +114,9 @@
       },
       "outage": {
         "name": "Outage in my area"
+      },
+      "heating_on": {
+        "name": "Heating on"
       }
     }
   }

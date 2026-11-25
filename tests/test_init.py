@@ -95,6 +95,10 @@ async def test_setup_and_entities(
     # Fields the station doesn't report get no entity.
     assert station_state("supply_pressure") is None
     assert station_state("internal_temperature") is None
+    heating_on = hass.states.get(
+        registry.async_get_entity_id("binary_sensor", DOMAIN, f"station_{STATION_ID}_heating_on")
+    )
+    assert heating_on.state == "off"  # loop at 20.64 C, season not started
     device = dr.async_get(hass).async_get_device({(DOMAIN, f"station_{STATION_ID}")})
     assert device.name == "АС Ж.К. ТЕСТ Бл. 1 А"
 

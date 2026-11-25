@@ -15,10 +15,14 @@ from homeassistant.util import dt as dt_util
 
 from .const import CONF_ACCIDENT_KEYWORDS, DOMAIN
 from .coordinator import ToploConfigEntry
-from .entity import ToploAccountEntity, ToploInstallationEntity
+from .entity import ToploAccountEntity, ToploInstallationEntity, ToploStationEntity
 from .sensor import accident_attrs, keywords_from, unpaid
 
 PARALLEL_UPDATES = 0
+
+# A heating loop above this is being fed by the network; when the season is
+# off it drifts to room temperature (~20 C) while the set point stays high.
+HEATING_ON_THRESHOLD = 30.0
 
 
 async def async_setup_entry(
@@ -31,6 +35,10 @@ async def async_setup_entry(
         ToploOverdueSensor(runtime.account, number)
         for number in runtime.account.data.installations
     ]
+    entities.extend(
+        ToploHeatingOnSensor(runtime.stations, station_id)
+        for station_id in (runtime.stations.data or {})
+    )
     keywords = keywords_from(entry.options.get(CONF_ACCIDENT_KEYWORDS))
     if keywords:
         entities.append(ToploOutageSensor(runtime.accidents, keywords))
@@ -92,3 +100,28 @@ class ToploOutageSensor(ToploAccountEntity, BinarySensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {"events": [accident_attrs(a) for a in self._matching()]}
+
+
+class ToploHeatingOnSensor(ToploStationEntity, BinarySensorEntity):
+    """On when the substation's heating circuit is warm, i.e. the season is on."""
+
+    _attr_device_class = BinarySensorDeviceClass.HEAT
+
+    def __init__(self, coordinator, station_id: str) -> None:
+        super().__init__(coordinator, station_id, "heating_on")
+
+    @property
+    def is_on(self) -> bool | None:
+        temperature = self.station.heating_temperature
+        if temperature is None:
+            return None
+        return temperature >= HEATING_ON_THRESHOLD
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        station = self.station
+        return {
+            "heating_temperature": station.heating_temperature,
+            "heating_set_temperature": station.heating_set_temperature,
+            "threshold": HEATING_ON_THRESHOLD,
+        }
