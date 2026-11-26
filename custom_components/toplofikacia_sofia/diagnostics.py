@@ -10,6 +10,7 @@ from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
 
+from .const import CONF_ACCIDENT_KEYWORDS
 from .coordinator import ToploConfigEntry
 
 TO_REDACT = {
@@ -25,6 +26,11 @@ TO_REDACT = {
     "number",
     "installation",
     "installation_number",
+    "name",
+    "station_number",
+    "logical_heatmeter_number",
+    # Users enter their district, street or station here.
+    CONF_ACCIDENT_KEYWORDS,
 }
 
 
@@ -44,7 +50,7 @@ async def async_get_config_entry_diagnostics(
     alias = {number: f"installation_{i}" for i, number in enumerate(data.installations, 1)}
     return {
         "entry": async_redact_data(dict(entry.data), TO_REDACT),
-        "options": dict(entry.options),
+        "options": async_redact_data(dict(entry.options), TO_REDACT),
         "installations": [
             async_redact_data(_plain(inst), TO_REDACT)
             for inst in data.installations.values()
@@ -63,7 +69,7 @@ async def async_get_config_entry_diagnostics(
         },
         "accidents": len(entry.runtime_data.accidents.data or []),
         "stations": [
-            async_redact_data(_plain(station), TO_REDACT | {"name", "station_number", "logical_heatmeter_number"})
+            async_redact_data(_plain(station), TO_REDACT)
             for station in (entry.runtime_data.stations.data or {}).values()
         ],
     }

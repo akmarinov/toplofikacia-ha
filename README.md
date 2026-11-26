@@ -63,8 +63,11 @@ Toplofikatsia revises them.
 
 ## Install
 
-**HACS (custom repository):** HACS → ⋮ → Custom repositories → add this repository's URL as an
-*Integration*, install **Toplofikatsia Sofia**, then restart Home Assistant.
+**HACS:** open HACS, search for **Toplofikatsia Sofia**, download it, then restart Home
+Assistant.
+
+If it doesn't show up in the search yet, add it as a custom repository: HACS → ⋮ → Custom
+repositories → add this repository's URL as an *Integration*, then install it as above.
 
 **Manual:** copy `custom_components/toplofikacia_sofia` into your HA `config/custom_components/`
 folder and restart.
