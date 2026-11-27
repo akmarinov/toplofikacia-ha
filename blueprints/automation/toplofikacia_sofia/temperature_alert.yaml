@@ -105,6 +105,3 @@ actions:
           data:
             title: "Toplofikatsia: {{ label | lower }} is low"
             message: "{{ label }} is {{ value }} °C against a {{ target }} °C target."
-            data:
-              push:
-                interruption-level: time-sensitive

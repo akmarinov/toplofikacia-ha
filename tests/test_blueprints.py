@@ -92,9 +92,12 @@ async def test_pause_and_resume_thermostats(hass: HomeAssistant) -> None:
     assert "back on" in notified[1].data["message"]
 
 
-async def test_resume_without_snapshot_sets_heat(hass: HomeAssistant) -> None:
+async def test_resume_without_snapshot_leaves_off(hass: HomeAssistant) -> None:
     hass.states.async_set(HEATING_ON, "off")
     modes = async_mock_service(hass, "climate", "set_hvac_mode")
+    restored = async_mock_service(hass, "scene", "turn_on")
+    notified = async_mock_service(hass, "notify", "mobile_app_test_iphone")
+    phone = _phone(hass)
     assert await async_setup_component(
         hass,
         "automation",
@@ -102,7 +105,11 @@ async def test_resume_without_snapshot_sets_heat(hass: HomeAssistant) -> None:
             "automation": {
                 "use_blueprint": {
                     "path": _install(hass, "pause_thermostats.yaml"),
-                    "input": {"heating_on": HEATING_ON, "thermostats": THERMOSTATS},
+                    "input": {
+                        "heating_on": HEATING_ON,
+                        "thermostats": THERMOSTATS,
+                        "notify_devices": [phone],
+                    },
                 },
             }
         },
@@ -110,7 +117,9 @@ async def test_resume_without_snapshot_sets_heat(hass: HomeAssistant) -> None:
     await hass.async_block_till_done()
     hass.states.async_set(HEATING_ON, "on")
     await hass.async_block_till_done()
-    assert modes[0].data == {"entity_id": THERMOSTATS, "hvac_mode": "heat"}
+    assert not modes
+    assert not restored
+    assert "left off" in notified[0].data["message"]
 
 
 async def test_temperature_alert(hass: HomeAssistant) -> None:

@@ -3,8 +3,8 @@ blueprint:
   description: >-
     Turns the selected thermostats off when the substation's **Heating on** sensor
     goes off, and turns them back on when it comes back. Their previous modes and
-    targets are restored; if that snapshot was lost (for example after a restart),
-    they are set to heat.
+    targets are restored. If that snapshot was lost (for example after a restart),
+    they are left off.
   domain: automation
   source_url: https://github.com/akmarinov/toplofikacia-ha/blob/main/blueprints/automation/toplofikacia_sofia/pause_thermostats.yaml
   input:
@@ -53,6 +53,7 @@ variables:
   notify_devices: !input notify_devices
   # One snapshot per automation, so several instances don't overwrite each other.
   snapshot: "scene.toplofikacia_{{ this.entity_id.split('.')[1] }}_before_pause"
+  restorable: "{{ states(snapshot) not in ['unknown', 'unavailable'] }}"
 
 triggers:
   - trigger: state
@@ -86,20 +87,13 @@ actions:
       - conditions:
           - condition: trigger
             id: "on"
+          # Without a snapshot we don't know how they were set, so leave them off.
+          - condition: template
+            value_template: "{{ restorable }}"
         sequence:
-          - if:
-              - condition: template
-                value_template: "{{ states(snapshot) not in ['unknown', 'unavailable'] }}"
-            then:
-              - action: scene.turn_on
-                target:
-                  entity_id: "{{ snapshot }}"
-            else:
-              - action: climate.set_hvac_mode
-                target:
-                  entity_id: "{{ thermostats }}"
-                data:
-                  hvac_mode: heat
+          - action: scene.turn_on
+            target:
+              entity_id: "{{ snapshot }}"
   - repeat:
       for_each: "{{ notify_devices }}"
       sequence:
@@ -108,6 +102,11 @@ actions:
           data:
             title: Toplofikatsia
             message: >-
-              {{ 'District heating is off, so the thermostats are paused.'
-                 if trigger.id == 'off' else
-                 'District heating is back on, so the thermostats are on again.' }}
+              {% if trigger.id == 'off' %}
+                District heating is off, so the thermostats are paused.
+              {% elif restorable %}
+                District heating is back on, so the thermostats are on again.
+              {% else %}
+                District heating is back on, but the thermostats' previous settings
+                were lost, so they were left off.
+              {% endif %}
