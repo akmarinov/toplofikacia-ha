@@ -1,0 +1,110 @@
+blueprint:
+  name: Toplofikatsia - alert when station temperatures drop
+  description: >-
+    Sends a notification when the substation's heating or hot water temperature
+    falls a set percentage below its target. The heating check only runs while
+    the Heating on sensor is on, so it stays quiet outside the heating season.
+  domain: automation
+  source_url: https://github.com/akmarinov/toplofikacia-ha/blob/main/blueprints/automation/toplofikacia_sofia/temperature_alert.yaml
+  input:
+    heating_temperature:
+      name: Heating temperature
+      selector:
+        entity:
+          filter:
+            - integration: toplofikacia_sofia
+              domain: sensor
+              device_class: temperature
+    heating_target:
+      name: Heating target temperature
+      selector:
+        entity:
+          filter:
+            - integration: toplofikacia_sofia
+              domain: sensor
+              device_class: temperature
+    hot_water_temperature:
+      name: Hot water temperature
+      selector:
+        entity:
+          filter:
+            - integration: toplofikacia_sofia
+              domain: sensor
+              device_class: temperature
+    hot_water_target:
+      name: Hot water target temperature
+      selector:
+        entity:
+          filter:
+            - integration: toplofikacia_sofia
+              domain: sensor
+              device_class: temperature
+    heating_on:
+      name: Heating on sensor
+      selector:
+        entity:
+          filter:
+            - integration: toplofikacia_sofia
+              domain: binary_sensor
+    drop_percent:
+      name: Drop below target
+      default: 20
+      selector:
+        number:
+          min: 5
+          max: 80
+          step: 5
+          unit_of_measurement: "%"
+    notify_devices:
+      name: Phones to notify
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: mobile_app
+
+mode: queued
+
+trigger_variables:
+  heating: !input heating_temperature
+  heating_set: !input heating_target
+  hot_water: !input hot_water_temperature
+  hot_water_set: !input hot_water_target
+  heating_on: !input heating_on
+  factor_pct: !input drop_percent
+
+variables:
+  notify_devices: !input notify_devices
+
+triggers:
+  - trigger: template
+    id: heating
+    value_template: >-
+      {% set t = states(heating) | float(none) %}
+      {% set s = states(heating_set) | float(none) %}
+      {{ is_state(heating_on, 'on') and t is not none and s is not none and s > 0
+         and t < s * (1 - factor_pct / 100) }}
+  - trigger: template
+    id: hot_water
+    value_template: >-
+      {% set t = states(hot_water) | float(none) %}
+      {% set s = states(hot_water_set) | float(none) %}
+      {{ t is not none and s is not none and s > 0
+         and t < s * (1 - factor_pct / 100) }}
+
+actions:
+  - variables:
+      label: "{{ 'Heating' if trigger.id == 'heating' else 'Hot water' }}"
+      value: "{{ states(heating if trigger.id == 'heating' else hot_water) }}"
+      target: "{{ states(heating_set if trigger.id == 'heating' else hot_water_set) }}"
+  - repeat:
+      for_each: "{{ notify_devices }}"
+      sequence:
+        - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+          continue_on_error: true
+          data:
+            title: "Toplofikatsia: {{ label | lower }} is low"
+            message: "{{ label }} is {{ value }} °C against a {{ target }} °C target."
+            data:
+              push:
+                interruption-level: time-sensitive

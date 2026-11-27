@@ -1,0 +1,113 @@
+blueprint:
+  name: Toplofikatsia - pause thermostats while district heating is off
+  description: >-
+    Turns the selected thermostats off when the substation's **Heating on** sensor
+    goes off, and turns them back on when it comes back. Their previous modes and
+    targets are restored; if that snapshot was lost (for example after a restart),
+    they are set to heat.
+  domain: automation
+  source_url: https://github.com/akmarinov/toplofikacia-ha/blob/main/blueprints/automation/toplofikacia_sofia/pause_thermostats.yaml
+  input:
+    heating_on:
+      name: Heating on sensor
+      description: The substation's Heating on binary sensor.
+      selector:
+        entity:
+          filter:
+            - integration: toplofikacia_sofia
+              domain: binary_sensor
+    thermostats:
+      name: Thermostats
+      description: The thermostats to pause, for example your Eve Thermo valves.
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: climate
+    off_delay:
+      name: Wait before pausing
+      description: >-
+        How long heating has to stay off first. Stations report about once an hour,
+        so the default waits for a second reading.
+      default: 120
+      selector:
+        number:
+          min: 0
+          max: 480
+          step: 10
+          unit_of_measurement: min
+    notify_devices:
+      name: Phones to notify (optional)
+      description: Phones that get a message when the thermostats are paused or resumed.
+      default: []
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: mobile_app
+
+mode: restart
+
+variables:
+  thermostats: !input thermostats
+  notify_devices: !input notify_devices
+  # One snapshot per automation, so several instances don't overwrite each other.
+  snapshot: "scene.toplofikacia_{{ this.entity_id.split('.')[1] }}_before_pause"
+
+triggers:
+  - trigger: state
+    entity_id: !input heating_on
+    from: "on"
+    to: "off"
+    for:
+      minutes: !input off_delay
+    id: "off"
+  - trigger: state
+    entity_id: !input heating_on
+    from: "off"
+    to: "on"
+    id: "on"
+
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: "off"
+        sequence:
+          - action: scene.create
+            data:
+              scene_id: "{{ snapshot.split('.')[1] }}"
+              snapshot_entities: "{{ thermostats }}"
+          - action: climate.set_hvac_mode
+            target:
+              entity_id: "{{ thermostats }}"
+            data:
+              hvac_mode: "off"
+      - conditions:
+          - condition: trigger
+            id: "on"
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ states(snapshot) not in ['unknown', 'unavailable'] }}"
+            then:
+              - action: scene.turn_on
+                target:
+                  entity_id: "{{ snapshot }}"
+            else:
+              - action: climate.set_hvac_mode
+                target:
+                  entity_id: "{{ thermostats }}"
+                data:
+                  hvac_mode: heat
+  - repeat:
+      for_each: "{{ notify_devices }}"
+      sequence:
+        - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+          continue_on_error: true
+          data:
+            title: Toplofikatsia
+            message: >-
+              {{ 'District heating is off, so the thermostats are paused.'
+                 if trigger.id == 'off' else
+                 'District heating is back on, so the thermostats are on again.' }}

@@ -61,6 +61,22 @@ device), or show them in a Statistics graph card with the period set to month. E
 rewrites the last ~2 years of months, so estimates get replaced by real readings when
 Toplofikatsia revises them.
 
+## Automation blueprints
+
+Two ready-made automations. Click a badge to import it, then create an automation from it
+under **Settings → Automations & scenes → Blueprints**.
+
+- **Pause thermostats while district heating is off**
+  [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fakmarinov%2Ftoplofikacia-ha%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Ftoplofikacia_sofia%2Fpause_thermostats.yaml)
+  turns the thermostats you pick (for example Eve Thermo) off when **Heating on** has been off
+  for 2 hours (adjustable), and restores their previous mode and target when heat returns. It can
+  also notify your phones.
+- **Alert when station temperatures drop**
+  [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fakmarinov%2Ftoplofikacia-ha%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Ftoplofikacia_sofia%2Ftemperature_alert.yaml)
+  sends a time-sensitive notification to the phones you pick when the heating or hot water
+  temperature falls 20% (adjustable) below its target. The heating check only runs while
+  **Heating on** is on.
+
 ## Install
 
 **HACS:** open HACS, search for **Toplofikatsia Sofia**, download it, then restart Home
